@@ -1,56 +1,85 @@
+use gloo::console::log;
+use rand::Rng;
 use yew::prelude::*;
 
-const GRID_SIZE: u32 = 8;
-
-#[derive(Properties, PartialEq)]
-pub struct GridProps {
-    render_cell: Callback<String, Html>,
-}
+const GRID_SIZE: i32 = 4;
 
 #[function_component]
-fn Grid(props: &GridProps) -> Html {
-    let rows = (0..GRID_SIZE).map(|i| {
-        let cols = (0..GRID_SIZE).map(|j| {
-            let mut key = "".to_string();
-            let combined = format!("{}{}{}", i.to_string(), "+".to_string(), j.to_string());
-            key.push_str(&combined);
-
+fn App() -> Html {
+    let grid: UseStateHandle<Vec<Vec<i32>>> = use_state(|| build_grid(GRID_SIZE));
+    let rows = grid.to_vec().into_iter().map(|row| {
+        let cols = row.into_iter().map(|num| {
             html! {
                 <div class="col">
-                {props.render_cell.emit(key)}
+                if num == 0 {
+                   <div></div>
+                } else {
+                    {num}
+                }
                 </div>
             }
         });
         html! {
-            <div class="row">
-            {for cols}
-            </div>
+            <>
+            <div class="row">{for cols}</div>
+            </>
         }
     });
-
     html! {
         <>
+        <h1>{"Welcome to 2048"}</h1>
+        <div class="container">
         {for rows}
-        </>
-    }
-}
-
-#[function_component]
-fn App() -> Html {
-    let render_cell = Callback::from(move |key: String| {
-        html! {
-            <div>{key}</div>
-        }
-    });
-
-    html! {
-        <>
-            <h1>{"Welcome to 2048"}</h1>
-            <Grid {render_cell} />
+        </div>
         </>
     }
 }
 
 fn main() {
     yew::Renderer::<App>::new().render();
+}
+
+fn to_tuple(key: &str) -> (i32, i32) {
+    let k: Vec<i32> = key
+        .split("+")
+        .collect::<Vec<&str>>()
+        .into_iter()
+        .map(|num| num.parse::<i32>().unwrap())
+        .collect();
+
+    (k[0], k[1])
+}
+
+fn zeros(len: i32) -> Vec<i32> {
+    vec![0; len as usize]
+}
+
+fn build_grid(size: i32) -> Vec<Vec<i32>> {
+    let rand_row1 = random_int(0, size, None);
+    let rand_col1 = random_int(0, size, None);
+    let mut target: Vec<Vec<i32>> = vec![];
+    for _ in 0..size {
+        target.push(zeros(size));
+    }
+    target[rand_row1 as usize][rand_col1 as usize] = 2;
+    let rand_row2 = random_int(0, size, Some(rand_row1));
+    let rand_col2 = random_int(0, size, Some(rand_col1));
+
+    target[rand_row2 as usize][rand_col2 as usize] = 2;
+    target
+}
+
+fn random_int(min: i32, max: i32, exclude: Option<i32>) -> i32 {
+    let mut rng = rand::thread_rng();
+    if exclude.is_none() {
+        return rng.gen_range(min..max);
+    }
+    loop {
+        let attempt = rng.gen_range(min..max);
+        if let Some(exclude) = exclude {
+            if exclude != attempt {
+                return attempt;
+            }
+        }
+    }
 }
