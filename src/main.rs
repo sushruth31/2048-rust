@@ -1,5 +1,9 @@
 use gloo::{console::log, events::EventListener};
 use rand::Rng;
+use std::{
+    borrow::BorrowMut,
+    ops::{Deref, DerefMut},
+};
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
@@ -82,6 +86,7 @@ fn rotate_grid_right(grid: &mut BoardType) -> BoardType {
     target
 }
 
+#[derive(Clone, PartialEq, Debug, Properties)]
 pub struct Board {
     board: BoardType,
 }
@@ -175,45 +180,53 @@ impl Board {
         //rotate right shift lef rotate left
         self.rotate_right().shift_board_left().rotate_left()
     }
+
+    fn new(size: i32) -> Board {
+        Board {
+            board: build_grid(size),
+        }
+    }
+
+    fn get_board(&self) -> BoardType {
+        self.board.to_vec()
+    }
 }
 
 #[function_component]
 fn App() -> Html {
-    let grid: UseStateHandle<BoardType> = use_state(|| build_grid(GRID_SIZE));
+    let board: UseStateHandle<Board> = use_state(|| Board::new(GRID_SIZE));
     {
-        let grid = grid.clone();
-        let grid_inner = grid.clone();
-        let mut board = Board {
-            board: grid.to_vec(),
-        };
+        let board = board.clone();
         use_effect_with_deps(
-            move |_| {
+            move |board| {
                 let document = gloo::utils::document();
+                let board = board.clone();
                 let listener = EventListener::new(&document, "keydown", move |evt| {
                     let e = evt.dyn_ref::<web_sys::KeyboardEvent>().unwrap();
                     let key = e.key();
                     match key.as_str() {
                         "ArrowRight" => {
-                            grid_inner.set(board.shift_board_right().board);
+                            let newboard = board.deref().to_owned().shift_board_right();
+                            board.set(newboard);
                         }
                         "ArrowLeft" => {
-                            grid_inner.set(board.shift_board_left().board);
+                            board.set(board.deref().to_owned().shift_board_left());
                         }
                         "ArrowUp" => {
-                            grid_inner.set(board.shift_up().board);
+                            board.set(board.deref().to_owned().shift_up());
                         }
                         "ArrowDown" => {
-                            grid_inner.set(board.shift_down().board);
+                            board.set(board.deref().to_owned().shift_down());
                         }
                         _ => (),
                     }
                 });
                 || drop(listener)
             },
-            grid,
+            board,
         );
     }
-    let rows = grid.to_vec().into_iter().map(|row| {
+    let rows = board.get_board().into_iter().map(|row| {
         let cols = row.into_iter().map(|num| {
             html! {
                 <div class="col">
