@@ -163,11 +163,8 @@ impl Board {
         }
     }
 
-    fn add_val_to_board(&mut self, coord: (i32, i32), val: i32) -> Self {
+    fn add_val_to_board(&mut self, coord: (i32, i32), val: i32) -> () {
         self.board[coord.0 as usize][coord.1 as usize] = val;
-        Board {
-            board: self.board.to_owned(),
-        }
     }
 }
 
