@@ -148,6 +148,7 @@ impl Board {
     }
 
     fn is_board_full(&self) -> bool {
+        //TODO
         false
     }
 
@@ -160,21 +161,14 @@ impl Board {
         loop {
             let rowattempt = random_int(0, GRID_SIZE, None);
             let colattempt = random_int(0, GRID_SIZE, None);
-            if self.get_board()[rowattempt as usize][colattempt as usize] == 0 {
+            if self.board[rowattempt as usize][colattempt as usize] == 0 {
                 return Some((rowattempt, colattempt));
             }
         }
     }
 
     fn add_val_to_board(&mut self, coord: (i32, i32), val: i32) -> Self {
-        for (i, row) in self.get_board().iter_mut().enumerate() {
-            for (j, num) in row.iter().enumerate() {
-                if i as i32 == coord.0 && j as i32 == coord.1 {
-                    self.board[i][j] = val;
-                }
-            }
-        }
-
+        self.board[coord.0 as usize][coord.1 as usize] = val;
         Board {
             board: self.board.to_owned(),
         }
