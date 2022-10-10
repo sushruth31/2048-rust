@@ -1,7 +1,7 @@
 use gloo::{console::log, events::EventListener};
 use rand::Rng;
-use std::{borrow::BorrowMut, ops::Deref};
-use wasm_bindgen::JsCast;
+use std::{borrow::BorrowMut, collections::HashMap, ops::Deref};
+use wasm_bindgen::{JsCast, JsValue};
 use yew::prelude::*;
 
 const GRID_SIZE: i32 = 4;
@@ -72,7 +72,7 @@ impl Board {
                     }
                     if curr == next {
                         //add if numbers are the same
-                        row[j as usize] = curr + next;
+                        row[j as usize] = curr * 2;
                         row[next_i] = 0;
                     }
                 }
@@ -102,7 +102,7 @@ impl Board {
                         row[j as usize] = 0;
                     }
                     if curr == next {
-                        row[next_j] = next + curr;
+                        row[next_j] = curr * 2;
                         row[j as usize] = 0;
                     }
                 }
@@ -136,16 +136,21 @@ impl Board {
         let coord1 = self.find_possible_coord();
         let coord2 = self.find_possible_coord();
         if let Some(coord1) = coord1 {
-            if let Some(coord2) = coord2 {
-                self.add_val_to_board(coord1, 2);
-                self.add_val_to_board(coord2, 2);
+            //add only if we have at least one coord
+            match coord2 {
+                Some(coord2) => {
+                    self.add_val_to_board(coord1, 2);
+                    self.add_val_to_board(coord2, 2);
+                }
+                None => {
+                    self.add_val_to_board(coord1, 2);
+                }
             }
         }
     }
 
     fn is_board_full(&self) -> bool {
-        //TODO
-        false
+        self.num_zeros() == 0
     }
 
     fn find_possible_coord(&self) -> Option<(i32, i32)> {
@@ -168,9 +173,16 @@ impl Board {
     }
 }
 
+fn log_map(m: &HashMap<i32, i32>) -> () {
+    for (k, v) in m {
+        log!(k.to_string(), v.to_string());
+    }
+}
+
 #[function_component]
 fn App() -> Html {
     let board: UseStateHandle<Board> = use_state(|| Board::new(GRID_SIZE));
+    let colormap = use_memo(|_| get_color_map(), ());
     {
         let board = board.clone();
         use_effect_with_deps(
@@ -205,12 +217,17 @@ fn App() -> Html {
     }
     let rows = board.get_board().into_iter().map(|row| {
         let cols = row.into_iter().map(|num| {
+            let mut class = "flexbox".to_string();
+            if let Some(level) = (*colormap).get(&num) {
+                class.push_str(&format!(" {}", level.to_string()));
+            }
+            log!(&class);
             html! {
                 <div class="col">
                 if num == 0 {
                    <div></div>
                 } else {
-                    {num}
+                    <div {class}>{num}</div>
                 }
                 </div>
             }
@@ -278,10 +295,30 @@ fn random_int(min: i32, max: i32, exclude: Option<&Vec<i32>>) -> i32 {
     }
 }
 
-fn multple_random_ints(min: i32, max: i32, count: i32) -> Vec<i32> {
-    let mut tar: Vec<i32> = Vec::with_capacity(count as usize);
-    for _ in 0..(count as usize) {
-        tar.push(random_int(min, max, Some(&tar)))
+fn make_range(min: i32, max: i32, interval: i32) -> Vec<i32> {
+    let mut tar: Vec<i32> = Vec::new();
+    let mut last = min;
+    loop {
+        let new = if last == 0 { interval } else { last * interval };
+        if new >= max {
+            break;
+        }
+        tar.push(new);
+        last = new;
     }
     tar
+}
+
+//8 -> 3. 3 used for classname
+fn get_color_map() -> HashMap<i32, i32> {
+    let mut levelmap = HashMap::new();
+    levelmap.insert(1, "one");
+    let mut hashmap = HashMap::new();
+    for (i, val) in make_range(0, 2048, 2).into_iter().enumerate() {
+        let i = (i + 1) as i32;
+        let levelstring = levelmap.get(&i);
+        hashmap.insert(val, (i + 1) as i32);
+    }
+
+    hashmap
 }
