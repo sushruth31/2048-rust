@@ -136,6 +136,7 @@ impl Board {
 
     fn add_nums_to_board(&mut self) {
         //cannot add where num > 0
+        //TODO check edge cases
         let coord1 = self.find_possible_coord();
         let coord2 = self.find_possible_coord();
         if let Some(coord1) = coord1 {
@@ -151,7 +152,8 @@ impl Board {
     }
 
     fn find_possible_coord(&self) -> Option<(i32, i32)> {
-        //check to make sure board is not full
+        //check to make sure board is not fullj
+        //TODO check edge cases
         if self.is_board_full() {
             return None;
         }
