@@ -1,7 +1,7 @@
 use gloo::{console::log, events::EventListener};
 use rand::Rng;
-use std::{borrow::BorrowMut, collections::HashMap, ops::Deref};
-use wasm_bindgen::{JsCast, JsValue};
+use std::{collections::HashMap, ops::Deref};
+use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 const GRID_SIZE: i32 = 4;
@@ -46,17 +46,17 @@ impl Board {
     }
 
     fn num_zeros(&self) -> i32 {
-        let flat: Vec<i32> = self
+        (self
             .get_board()
             .into_iter()
             .flatten()
             .filter(|n| n == &0)
-            .collect();
-        flat.len() as i32
+            .collect::<Vec<i32>>()
+            .len()) as i32
     }
 
     fn shift_board_left(&mut self) -> Board {
-        let ogboard = self.clone();
+        let copy = self.get_board();
         for (i, row) in self.board.iter_mut().enumerate() {
             let mut count = 0;
             while count < 5 {
@@ -65,54 +65,71 @@ impl Board {
                     let curr = row[j as usize];
                     let next_i = (j + 1) as usize;
                     let next = row[next_i];
-                    if curr == 0 {
+                    let copy = copy.clone();
+                    //move if value was not a modified one.
+                    if curr == 0
+                        && copy
+                            .into_iter()
+                            .flatten()
+                            .collect::<Vec<i32>>()
+                            .contains(&next)
+                    {
                         //move next left;
                         row[j as usize] = next;
                         row[next_i] = 0;
                     }
-                    if curr == next {
-                        //add if numbers are the same
-                        row[j as usize] = curr * 2;
-                        row[next_i] = 0;
+                    if count <= 2 {
+                        if curr == next {
+                            //add if numbers are the same
+                            row[j as usize] = curr * 2;
+                            row[next_i] = 0;
+                        }
                     }
                 }
             }
         }
-        let mut board = self.clone();
-        if ogboard.num_zeros() != self.num_zeros() {
-            board.add_nums_to_board();
-        }
+        self.add_num_to_board();
 
-        Board { board: board.board }
+        Board {
+            board: self.board.to_owned(),
+        }
     }
 
     fn shift_board_right(&mut self) -> Board {
-        let ogboard = self.clone();
+        let copy = self.get_board();
         for (i, row) in self.board.iter_mut().enumerate() {
             let mut count = 0;
             while count < 5 {
                 count += 1;
                 for j in 0..GRID_SIZE - 1 {
+                    let copy = copy.clone();
                     let curr = row[j as usize];
                     let next_j = (j + 1) as usize;
                     let next = row[next_j];
-                    if next == 0 {
+                    if next == 0
+                        && copy
+                            .into_iter()
+                            .flatten()
+                            .collect::<Vec<i32>>()
+                            .contains(&curr)
+                    {
                         //shift right
                         row[next_j] = curr;
                         row[j as usize] = 0;
                     }
-                    if curr == next {
-                        row[next_j] = curr * 2;
-                        row[j as usize] = 0;
+                    if count <= 2 {
+                        if curr == next {
+                            row[next_j] = curr * 2;
+                            row[j as usize] = 0;
+                        }
                     }
                 }
             }
         }
-        let mut board = self.clone();
-        if ogboard.num_zeros() != self.num_zeros() {
-            board.add_nums_to_board();
+        self.add_num_to_board();
+        Board {
+            board: self.board.to_owned(),
         }
-        Board { board: board.board }
     }
 
     fn shift_down(&mut self) -> Board {
@@ -130,22 +147,12 @@ impl Board {
         self.board.to_vec()
     }
 
-    fn add_nums_to_board(&mut self) {
+    fn add_num_to_board(&mut self) {
         //cannot add where num > 0
-        //TODO check edge cases
-        let coord1 = self.find_possible_coord();
-        let coord2 = self.find_possible_coord();
-        if let Some(coord1) = coord1 {
+        let coord = self.find_possible_coord();
+        if let Some(coord) = coord {
             //add only if we have at least one coord
-            match coord2 {
-                Some(coord2) => {
-                    self.add_val_to_board(coord1, 2);
-                    self.add_val_to_board(coord2, 2);
-                }
-                None => {
-                    self.add_val_to_board(coord1, 2);
-                }
-            }
+            self.add_val_to_board(coord, 2);
         }
     }
 
@@ -171,25 +178,55 @@ impl Board {
     fn add_val_to_board(&mut self, coord: (i32, i32), val: i32) -> () {
         self.board[coord.0 as usize][coord.1 as usize] = val;
     }
+
+    fn is_game_over(&self) -> Option<Result> {
+        //win if one number == 2048
+        if self.get_board().into_iter().flatten().any(|v| v == 2048) {
+            return Some(Result::WIN);
+        }
+        if self.num_zeros() == 0 {
+            return Some(Result::LOSE);
+        }
+
+        None
+    }
 }
 
-fn log_map(m: &HashMap<i32, i32>) -> () {
+fn log_map(m: &HashMap<i32, String>) -> () {
     for (k, v) in m {
-        log!(k.to_string(), v.to_string());
+        log!(k.to_string(), v);
     }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum Result {
+    WIN,
+    LOSE,
 }
 
 #[function_component]
 fn App() -> Html {
-    let board: UseStateHandle<Board> = use_state(|| Board::new(GRID_SIZE));
+    let board = use_state(|| Board::new(GRID_SIZE));
     let colormap = use_memo(|_| get_color_map(), ());
+    let outcome: UseStateHandle<Option<Result>> = use_state(|| None);
+    let outcomeval = outcome.deref();
     {
         let board = board.clone();
+        let outcome = outcome.clone();
         use_effect_with_deps(
-            move |board| {
+            move |(board, outcome)| {
+                //check if win or lose here
+                let mut gameover = false;
+                if let Some(goopt) = board.is_game_over() {
+                    gameover = true;
+                    outcome.set(Some(goopt))
+                }
                 let document = gloo::utils::document();
                 let board = board.clone();
                 let listener = EventListener::new(&document, "keydown", move |evt| {
+                    if gameover {
+                        return;
+                    }
                     let e = evt.dyn_ref::<web_sys::KeyboardEvent>().unwrap();
                     let key = e.key();
                     match key.as_str() {
@@ -212,7 +249,7 @@ fn App() -> Html {
                 });
                 || drop(listener)
             },
-            board,
+            (board, outcome),
         );
     }
     let rows = board.get_board().into_iter().map(|row| {
@@ -221,7 +258,6 @@ fn App() -> Html {
             if let Some(level) = (*colormap).get(&num) {
                 class.push_str(&format!(" {}", level.to_string()));
             }
-            log!(&class);
             html! {
                 <div class="col">
                 if num == 0 {
@@ -238,9 +274,26 @@ fn App() -> Html {
             </>
         }
     });
+
+    let onreset = Callback::from(move |_: MouseEvent| {
+        let board = board.clone();
+        board.set(Board::new(GRID_SIZE));
+    });
     html! {
         <>
+        <div class="flexbox">
         <h1>{"Welcome to 2048"}</h1>
+        <button onclick={onreset}>
+        {"New Game"}
+        </button>
+        </div>
+            if let Some(outcome) = outcomeval {
+                if outcome == &Result::WIN {
+                    <div>{"You Win"}</div>
+                } else {
+                    <div>{"You Win"}</div>
+                }
+            }
         <div class="container">
         {for rows}
         </div>
@@ -310,14 +363,20 @@ fn make_range(min: i32, max: i32, interval: i32) -> Vec<i32> {
 }
 
 //8 -> 3. 3 used for classname
-fn get_color_map() -> HashMap<i32, i32> {
+fn get_color_map() -> HashMap<i32, String> {
     let mut levelmap = HashMap::new();
     levelmap.insert(1, "one");
+    levelmap.insert(2, "two");
+    levelmap.insert(3, "three");
+    levelmap.insert(4, "four");
+    levelmap.insert(5, "five");
     let mut hashmap = HashMap::new();
     for (i, val) in make_range(0, 2048, 2).into_iter().enumerate() {
         let i = (i + 1) as i32;
         let levelstring = levelmap.get(&i);
-        hashmap.insert(val, (i + 1) as i32);
+        if let Some(levelstring) = levelstring {
+            hashmap.insert(val, levelstring.to_string());
+        }
     }
 
     hashmap

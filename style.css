@@ -16,7 +16,6 @@
 }
 
 .flexbox {
-  background-color: green;
   width: 100%;
   height: 100%;
   display: flex;
@@ -25,5 +24,19 @@
 }
 
 .flexbox.one {
-  background-color: green;
+  background-color: #ebe0d5
+}
+
+.flexbox.two {
+  background-color: #ebddc2
+}
+.flexbox.three {
+  background-color: #f1a96f
+}
+
+.flexbox.four {
+  background-color: #f58b59
+}
+.flexbox.five {
+  background-color: #f67154
 }
