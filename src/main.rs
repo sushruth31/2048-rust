@@ -1,90 +1,12 @@
 use gloo::{console::log, events::EventListener};
 use rand::Rng;
-use std::{
-    borrow::BorrowMut,
-    ops::{Deref, DerefMut},
-};
+use std::{borrow::BorrowMut, ops::Deref};
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 const GRID_SIZE: i32 = 4;
 
 type BoardType = Vec<Vec<i32>>;
-
-fn shift_board_right(grid: &mut BoardType) -> BoardType {
-    for (i, row) in grid.iter_mut().enumerate() {
-        let mut count = 0;
-        while count < 5 {
-            count += 1;
-            for j in 0..GRID_SIZE - 1 {
-                let curr = row[j as usize];
-                let next_j = (j + 1) as usize;
-                let next = row[next_j];
-                if next == 0 {
-                    //shift right
-                    row[next_j] = curr;
-                    row[j as usize] = 0;
-                }
-                if curr == next {
-                    row[next_j] = next * 2;
-                    row[j as usize] = 0;
-                }
-            }
-        }
-    }
-    grid.to_owned()
-}
-
-fn shift_board_left(grid: &mut BoardType) -> BoardType {
-    for (i, row) in grid.iter_mut().enumerate() {
-        let mut count = 0;
-        while count < 5 {
-            count += 1;
-            for j in 0..GRID_SIZE - 1 {
-                let curr = row[j as usize];
-                let next_i = (j + 1) as usize;
-                let next = row[next_i];
-                if curr == 0 {
-                    //move next left;
-                    row[j as usize] = next;
-                    row[next_i] = 0;
-                }
-                if curr == next {
-                    //add if numbers are the same
-                    row[j as usize] = curr * 2;
-                    row[next_i] = 0;
-                }
-            }
-        }
-    }
-    grid.to_owned()
-}
-
-fn rotate_grid_left(grid: &mut BoardType) -> BoardType {
-    let mut target = build_grid(GRID_SIZE);
-    for (i, row) in grid.iter().enumerate() {
-        for (j, num) in row.iter().enumerate() {
-            //grid row should become target col
-            //grid col should become target row but its gridsize -1 - col
-            let targetrow = GRID_SIZE - 1 - (j as i32);
-            target[targetrow as usize][i] = grid[i][j]
-        }
-    }
-    target
-}
-
-fn rotate_grid_right(grid: &mut BoardType) -> BoardType {
-    let mut target = build_grid(GRID_SIZE);
-    for (i, row) in grid.iter().enumerate() {
-        for (j, num) in row.iter().enumerate() {
-            //grid row should be target col but Gridsize - it
-            //grid col should become target row but its gridsize -1 - col
-            let targetcol = GRID_SIZE - 1 - (i as i32);
-            target[j][targetcol as usize] = grid[i][j];
-        }
-    }
-    target
-}
 
 #[derive(Clone, PartialEq, Debug, Properties)]
 pub struct Board {
@@ -123,7 +45,22 @@ impl Board {
         Board { board: target }
     }
 
+    fn num_zeros(&self) -> i32 {
+        let mut count = 0;
+
+        for row in self.get_board().iter() {
+            for num in row.to_vec().into_iter() {
+                if num == 0 {
+                    count += 1;
+                }
+            }
+        }
+
+        count
+    }
+
     fn shift_board_left(&mut self) -> Board {
+        let ogboard = self.clone();
         for (i, row) in self.board.iter_mut().enumerate() {
             let mut count = 0;
             while count < 5 {
@@ -139,18 +76,22 @@ impl Board {
                     }
                     if curr == next {
                         //add if numbers are the same
-                        row[j as usize] = curr * 2;
+                        row[j as usize] = curr + next;
                         row[next_i] = 0;
                     }
                 }
             }
         }
-        Board {
-            board: self.board.to_owned(),
+        let mut board = self.clone();
+        if ogboard.num_zeros() != self.num_zeros() {
+            board.add_nums_to_board();
         }
+
+        Board { board: board.board }
     }
 
     fn shift_board_right(&mut self) -> Board {
+        let ogboard = self.clone();
         for (i, row) in self.board.iter_mut().enumerate() {
             let mut count = 0;
             while count < 5 {
@@ -165,19 +106,21 @@ impl Board {
                         row[j as usize] = 0;
                     }
                     if curr == next {
-                        row[next_j] = next * 2;
+                        row[next_j] = next + curr;
                         row[j as usize] = 0;
                     }
                 }
             }
         }
-        Board {
-            board: self.board.to_owned(),
+        let mut board = self.clone();
+        if ogboard.num_zeros() != self.num_zeros() {
+            board.add_nums_to_board();
         }
+        Board { board: board.board }
     }
 
     fn shift_down(&mut self) -> Board {
-        //rotate right shift lef rotate left
+        //rotate right shift lef rotaje left
         self.rotate_right().shift_board_left().rotate_left()
     }
 
@@ -189,6 +132,50 @@ impl Board {
 
     fn get_board(&self) -> BoardType {
         self.board.to_vec()
+    }
+
+    fn add_nums_to_board(&mut self) {
+        //cannot add where num > 0
+        let coord1 = self.find_possible_coord();
+        let coord2 = self.find_possible_coord();
+        if let Some(coord1) = coord1 {
+            if let Some(coord2) = coord2 {
+                self.add_val_to_board(coord1, 2);
+                self.add_val_to_board(coord2, 2);
+            }
+        }
+    }
+
+    fn is_board_full(&self) -> bool {
+        false
+    }
+
+    fn find_possible_coord(&self) -> Option<(i32, i32)> {
+        //check to make sure board is not full
+        if self.is_board_full() {
+            return None;
+        }
+        loop {
+            let rowattempt = random_int(0, GRID_SIZE, None);
+            let colattempt = random_int(0, GRID_SIZE, None);
+            if self.get_board()[rowattempt as usize][colattempt as usize] == 0 {
+                return Some((rowattempt, colattempt));
+            }
+        }
+    }
+
+    fn add_val_to_board(&mut self, coord: (i32, i32), val: i32) -> Self {
+        for (i, row) in self.get_board().iter_mut().enumerate() {
+            for (j, num) in row.iter().enumerate() {
+                if i as i32 == coord.0 && j as i32 == coord.1 {
+                    self.board[i][j] = val;
+                }
+            }
+        }
+
+        Board {
+            board: self.board.to_owned(),
+        }
     }
 }
 
@@ -220,6 +207,7 @@ fn App() -> Html {
                         }
                         _ => (),
                     }
+                    //add the next squares.
                 });
                 || drop(listener)
             },
@@ -281,24 +269,30 @@ fn build_grid(size: i32) -> Vec<Vec<i32>> {
         target.push(zeros(size));
     }
     target[rand_row1 as usize][rand_col1 as usize] = 2;
-    let rand_row2 = random_int(0, size, Some(rand_row1));
-    let rand_col2 = random_int(0, size, Some(rand_col1));
+    let rand_row2 = random_int(0, size, Some(&vec![rand_row1]));
+    let rand_col2 = random_int(0, size, Some(&vec![rand_col1]));
 
     target[rand_row2 as usize][rand_col2 as usize] = 2;
     target
 }
 
-fn random_int(min: i32, max: i32, exclude: Option<i32>) -> i32 {
+fn random_int(min: i32, max: i32, exclude: Option<&Vec<i32>>) -> i32 {
     let mut rng = rand::thread_rng();
     if exclude.is_none() {
         return rng.gen_range(min..max);
     }
     loop {
         let attempt = rng.gen_range(min..max);
-        if let Some(exclude) = exclude {
-            if exclude != attempt {
-                return attempt;
-            }
+        if !exclude.clone().unwrap().contains(&attempt) {
+            return attempt;
         }
     }
+}
+
+fn multple_random_ints(min: i32, max: i32, count: i32) -> Vec<i32> {
+    let mut tar: Vec<i32> = Vec::with_capacity(count as usize);
+    for _ in 0..(count as usize) {
+        tar.push(random_int(min, max, Some(&tar)))
+    }
+    tar
 }
