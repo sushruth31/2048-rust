@@ -46,17 +46,13 @@ impl Board {
     }
 
     fn num_zeros(&self) -> i32 {
-        let mut count = 0;
-
-        for row in self.get_board().iter() {
-            for num in row.to_vec().into_iter() {
-                if num == 0 {
-                    count += 1;
-                }
-            }
-        }
-
-        count
+        let flat: Vec<i32> = self
+            .get_board()
+            .into_iter()
+            .flatten()
+            .filter(|n| n == &0)
+            .collect();
+        flat.len() as i32
     }
 
     fn shift_board_left(&mut self) -> Board {
