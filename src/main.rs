@@ -56,7 +56,7 @@ impl Board {
     }
 
     fn shift_board_left(&mut self) -> Board {
-        let copy = self.get_board();
+        let copy = self.clone();
         for (i, row) in self.board.iter_mut().enumerate() {
             let mut count = 0;
             while count < 5 {
@@ -65,68 +65,68 @@ impl Board {
                     let curr = row[j as usize];
                     let next_i = (j + 1) as usize;
                     let next = row[next_i];
-                    let copy = copy.clone();
-                    //move if value was not a modified one.
-                    if curr == 0
-                        && copy
-                            .into_iter()
-                            .flatten()
-                            .collect::<Vec<i32>>()
-                            .contains(&next)
-                    {
-                        //move next left;
+                    if curr == next {
+                        //add if numbers are the same
+                        row[j as usize] = curr * 2;
+                        row[next_i] = 0;
+                    } else if curr == 0 {
                         row[j as usize] = next;
                         row[next_i] = 0;
                     }
-                    if count <= 2 {
-                        if curr == next {
-                            //add if numbers are the same
-                            row[j as usize] = curr * 2;
-                            row[next_i] = 0;
-                        }
-                    }
+
+                    //move if value was not a modified one.
                 }
             }
         }
-        self.add_num_to_board();
+        //todo only add if there has been a change in board pieces
+        if !self.boards_eq(&copy.board[..]) {
+            self.add_num_to_board();
+        }
 
         Board {
             board: self.board.to_owned(),
         }
     }
 
+    fn boards_eq(&self, compare_board: &[Vec<i32>]) -> bool {
+        for (i, row) in self.get_board().into_iter().enumerate() {
+            for (j, num) in row.into_iter().enumerate() {
+                if compare_board[i][j] != num {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     fn shift_board_right(&mut self) -> Board {
-        let copy = self.get_board();
+        let copy = self.clone();
         for (i, row) in self.board.iter_mut().enumerate() {
             let mut count = 0;
             while count < 5 {
                 count += 1;
-                for j in 0..GRID_SIZE - 1 {
-                    let copy = copy.clone();
-                    let curr = row[j as usize];
+                for j in (0..GRID_SIZE - 1).rev() {
                     let next_j = (j + 1) as usize;
-                    let next = row[next_j];
-                    if next == 0
-                        && copy
-                            .into_iter()
-                            .flatten()
-                            .collect::<Vec<i32>>()
-                            .contains(&curr)
-                    {
-                        //shift right
-                        row[next_j] = curr;
+                    let left = row[j as usize];
+                    let right = row[next_j];
+
+                    if left == right {
+                        //right * 2
+                        row[next_j] = right * 2;
                         row[j as usize] = 0;
-                    }
-                    if count <= 2 {
-                        if curr == next {
-                            row[next_j] = curr * 2;
-                            row[j as usize] = 0;
-                        }
+                    } else if right == 0 {
+                        //shift right
+                        row[next_j] = left;
+                        row[j as usize] = 0;
                     }
                 }
             }
         }
-        self.add_num_to_board();
+
+        if !self.boards_eq(&copy.board[..]) {
+            self.add_num_to_board();
+        }
+
         Board {
             board: self.board.to_owned(),
         }
@@ -189,12 +189,6 @@ impl Board {
         }
 
         None
-    }
-}
-
-fn log_map(m: &HashMap<i32, String>) -> () {
-    for (k, v) in m {
-        log!(k.to_string(), v);
     }
 }
 
