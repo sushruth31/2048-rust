@@ -2,15 +2,19 @@
 name = "rust-2048"
 version = "0.1.0"
 edition = "2021"
-description = "2048 in Rust, compiled to WebAssembly"
+description = "2048 with a pure Rust rules engine and a Yew front end"
 license = "MIT"
 
 [dependencies]
-# Pinned to a master revision: the 0.19.3 release predates `#[hook]` and
-# name-inferring `#[function_component]`, both of which this crate uses.
-yew = { git = "https://github.com/yewstack/yew/", rev = "7ada3447bbf49fd1f7e1fce9c93619f8573fa98b", features = ["csr"] }
-gloo = "0.7.0"
 rand = "0.8.5"
+
+# Browser-only. Keeping these off the host build lets `cargo test` run the rules
+# engine without a wasm toolchain.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Pinned to a master revision: the 0.19.3 release predates `#[hook]` and
+# name-inferring `#[function_component]`, both of which `ui` uses.
+yew ={ git = "https://github.com/yewstack/yew/", rev = "7ada3447bbf49fd1f7e1fce9c93619f8573fa98b", features = ["csr"] }
+gloo = "0.7.0"
 wasm-bindgen = "0.2"
 getrandom = { version = "0.2", features = ["js"] }   # rand needs the browser CSPRNG
 web-sys = { version = "0.3", features = ["Event", "KeyboardEvent"] }

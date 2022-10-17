@@ -1,42 +1,60 @@
+body {
+  font-family: system-ui, sans-serif;
+  color: #776e65;
+  background: #faf8ef;
+  display: flex;
+  justify-content: center;
+}
+
+main {
+  width: 320px;
+  padding: 24px 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.score {
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  min-height: 20px;
+  margin: 4px 0 12px;
+}
+
+.grid {
+  background: #bbada0;
+  border-radius: 6px;
+  padding: 6px;
+}
+
 .row {
   display: flex;
-  align-items: center;
-  border-bottom: 1px solid grey;
-  height: 70px;
 }
 
-.col {
+.cell {
   display: flex;
-  border: 1px solid grey;
   align-items: center;
   justify-content: center;
-  height: 70px;
   width: 70px;
-  cursor: pointer;
+  height: 70px;
+  margin: 3px;
+  border-radius: 3px;
+  background: #cdc1b4;
+  font-size: 26px;
+  font-weight: 700;
 }
 
-.flexbox {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content:center;
-}
-
-.flexbox.one {
-  background-color: #ebe0d5
-}
-
-.flexbox.two {
-  background-color: #ebddc2
-}
-.flexbox.three {
-  background-color: #f1a96f
-}
-
-.flexbox.four {
-  background-color: #f58b59
-}
-.flexbox.five {
-  background-color: #f67154
+/* Tile backgrounds come from the palette in src/ui.rs, keyed on log2(value). */
+.tile {
+  color: #776e65;
 }
