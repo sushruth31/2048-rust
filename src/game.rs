@@ -146,3 +146,134 @@ fn collapse(line: Line) -> (Line, u32) {
     }
     (collapsed, gained)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+
+    fn board(cells: [Line; SIZE]) -> Board {
+        Board { cells, score: 0 }
+    }
+
+    fn rng() -> StdRng {
+        StdRng::seed_from_u64(2048)
+    }
+
+    fn tiles(board: &Board) -> Vec<u32> {
+        board
+            .cells
+            .iter()
+            .flatten()
+            .copied()
+            .filter(|&t| t != 0)
+            .collect()
+    }
+
+    #[test]
+    fn slides_tiles_to_the_edge_closing_every_gap() {
+        let shifted =
+            board([[0, 0, 0, 2], [4, 0, 8, 0], [0; 4], [2, 0, 0, 4]]).shift(Direction::Left);
+        assert_eq!(
+            shifted.cells,
+            [[2, 0, 0, 0], [4, 8, 0, 0], [0; 4], [2, 4, 0, 0]]
+        );
+    }
+
+    #[test]
+    fn merges_an_equal_pair_into_its_double() {
+        let shifted = board([[2, 2, 0, 0], [0; 4], [0; 4], [0; 4]]).shift(Direction::Left);
+        assert_eq!(shifted.cells[0], [4, 0, 0, 0]);
+    }
+
+    #[test]
+    fn merges_a_full_row_into_two_tiles_never_one() {
+        let shifted = board([[2, 2, 2, 2], [0; 4], [0; 4], [0; 4]]).shift(Direction::Left);
+        assert_eq!(shifted.cells[0], [4, 4, 0, 0]);
+    }
+
+    #[test]
+    fn never_merges_a_tile_that_already_merged_this_move() {
+        let shifted = board([[2, 2, 4, 0], [0; 4], [0; 4], [0; 4]]).shift(Direction::Left);
+        assert_eq!(shifted.cells[0], [4, 4, 0, 0]);
+    }
+
+    #[test]
+    fn merges_the_pair_nearest_the_destination_edge_first() {
+        let shifted = board([[2, 2, 2, 0], [0; 4], [0; 4], [0; 4]]).shift(Direction::Right);
+        assert_eq!(shifted.cells[0], [0, 0, 2, 4]);
+    }
+
+    #[test]
+    fn scores_the_value_of_each_tile_created_by_a_merge() {
+        let shifted = board([[4, 4, 8, 8], [2, 2, 0, 0], [0; 4], [0; 4]]).shift(Direction::Left);
+        assert_eq!(shifted.score, 8 + 16 + 4);
+    }
+
+    #[test]
+    fn moves_columns_up_and_down_independently() {
+        let start = board([[2, 0, 0, 0], [2, 4, 0, 0], [0, 4, 0, 0], [0, 0, 2, 0]]);
+        assert_eq!(start.shift(Direction::Up).cells[0], [4, 8, 2, 0]);
+        assert_eq!(start.shift(Direction::Down).cells[3], [4, 8, 2, 0]);
+    }
+
+    #[test]
+    fn leaves_the_board_untouched_when_a_direction_is_blocked() {
+        let blocked = board([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]]);
+        assert_eq!(blocked.shift(Direction::Left).cells, blocked.cells);
+    }
+
+    #[test]
+    fn refuses_to_spawn_a_tile_on_a_move_that_changes_nothing() {
+        let blocked = board([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]]);
+        assert_eq!(blocked.step(Direction::Left, &mut rng()), None);
+    }
+
+    #[test]
+    fn spawns_exactly_one_tile_per_move_that_changes_the_board() {
+        let start = board([[2, 2, 0, 0], [0; 4], [0; 4], [0; 4]]);
+        let next = start
+            .step(Direction::Left, &mut rng())
+            .expect("row can merge");
+        assert_eq!(tiles(&next).len(), 2);
+        assert_eq!(next.cells[0][0], 4);
+    }
+
+    #[test]
+    fn opens_the_game_with_two_tiles_worth_two_or_four() {
+        let opening = tiles(&Board::new(&mut rng()));
+        assert_eq!(opening.len(), 2);
+        assert!(opening.iter().all(|&tile| tile == 2 || tile == 4));
+    }
+
+    #[test]
+    fn keeps_a_full_board_alive_while_an_adjacent_pair_remains() {
+        let full = board([[2, 2, 4, 8], [4, 8, 16, 32], [2, 4, 8, 16], [4, 8, 16, 32]]);
+        assert_eq!(full.outcome(), None);
+    }
+
+    #[test]
+    fn declares_a_loss_only_when_no_direction_moves_a_tile() {
+        let dead = board([[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 2]]);
+        assert_eq!(dead.outcome(), Some(Outcome::Lost));
+    }
+
+    #[test]
+    fn declares_a_win_when_the_winning_tile_appears() {
+        let won = board([[WINNING_TILE, 0, 0, 0], [0; 4], [0; 4], [0; 4]]);
+        assert_eq!(won.outcome(), Some(Outcome::Won));
+    }
+
+    #[test]
+    fn fills_the_grid_without_ever_overwriting_a_tile() {
+        let mut rng = rng();
+        let mut filled = Board::default();
+        for expected in 1..=SIZE * SIZE {
+            filled.spawn(&mut rng);
+            assert_eq!(tiles(&filled).len(), expected);
+        }
+        filled.spawn(&mut rng);
+        assert_eq!(tiles(&filled).len(), SIZE * SIZE);
+    }
+}
