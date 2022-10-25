@@ -28,7 +28,8 @@ impl Reducible for Board {
         let mut rng = rand::thread_rng();
         match action {
             Action::Reset => Rc::new(Board::new(&mut rng)),
-            // A blocked move returns the same `Rc`, so Yew skips the re-render.
+            // A blocked move hands back an equal `Board`, which `use_reducer_eq`
+            // compares with `PartialEq` and then skips the re-render.
             Action::Shift(direction) => self.step(direction, &mut rng).map(Rc::new).unwrap_or(self),
         }
     }
@@ -36,7 +37,7 @@ impl Reducible for Board {
 
 #[function_component]
 pub fn App() -> Html {
-    let board = use_reducer(|| Board::new(&mut rand::thread_rng()));
+    let board = use_reducer_eq(|| Board::new(&mut rand::thread_rng()));
     let outcome = board.outcome();
     use_arrow_keys(board.dispatcher(), outcome.is_none());
     let reset = {
