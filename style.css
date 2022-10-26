@@ -41,6 +41,8 @@ main {
   display: flex;
 }
 
+/* Empty cell. Occupied ones override background and colour inline, from the
+   palette in src/ui.rs, keyed on log2(value). */
 .cell {
   display: flex;
   align-items: center;
@@ -52,9 +54,4 @@ main {
   background: #cdc1b4;
   font-size: 26px;
   font-weight: 700;
-}
-
-/* Tile backgrounds come from the palette in src/ui.rs, keyed on log2(value). */
-.tile {
-  color: #776e65;
 }

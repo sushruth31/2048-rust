@@ -9,10 +9,25 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, KeyboardEvent};
 use yew::prelude::*;
 
-/// Backgrounds for 2, 4, 8, ... 2048. Larger tiles reuse the last colour.
-const PALETTE: [&str; 11] = [
-    "#ebe0d5", "#ebddc2", "#f1a96f", "#f58b59", "#f67154", "#f65e3b", "#edcf72", "#edcc61",
-    "#edc850", "#edc53f", "#edc22e",
+const DARK_INK: &str = "#776e65";
+const LIGHT_INK: &str = "#f9f6f2";
+
+/// Background and glyph ink for 2, 4, 8, ... 2048; larger tiles reuse the last
+/// row. Each ink is whichever of the two measures the higher contrast ratio
+/// against its own background, so the light ink appears only across the mid
+/// oranges — a blanket switch above some threshold makes the yellows worse.
+const PALETTE: [(&str, &str); 11] = [
+    ("#ebe0d5", DARK_INK),
+    ("#ebddc2", DARK_INK),
+    ("#f1a96f", DARK_INK),
+    ("#f58b59", LIGHT_INK),
+    ("#f67154", LIGHT_INK),
+    ("#f65e3b", LIGHT_INK),
+    ("#edcf72", DARK_INK),
+    ("#edcc61", DARK_INK),
+    ("#edc850", DARK_INK),
+    ("#edc53f", DARK_INK),
+    ("#edc22e", DARK_INK),
 ];
 
 pub enum Action {
@@ -100,13 +115,14 @@ fn tile(value: u32) -> Html {
     if value == 0 {
         return html! { <div class="cell"></div> };
     }
-    html! { <div class="cell tile" style={colour(value)}>{value}</div> }
+    html! { <div class="cell" style={colour(value)}>{value}</div> }
 }
 
 /// Tier is log2(value) - 1, clamped to the palette.
 fn colour(value: u32) -> String {
     let tier = (value.trailing_zeros() as usize).saturating_sub(1);
-    format!("background-color: {}", PALETTE[tier.min(PALETTE.len() - 1)])
+    let (background, ink) = PALETTE[tier.min(PALETTE.len() - 1)];
+    format!("background-color: {background}; color: {ink}")
 }
 
 fn status(outcome: Option<Outcome>) -> &'static str {
