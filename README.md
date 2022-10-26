@@ -73,18 +73,21 @@ src/lib.rs ──┬── game.rs            pure rules: Board, Direction, Outc
   maintaining an incremental adjacency index would have been a worse trade.
 - **Randomness is a parameter, not an ambient effect.** `Board::new` and
   `Board::step` take `&mut impl Rng`, so tests drive them with a seeded
-  `StdRng` and assert on exact boards; `thread_rng()` appears exactly once, in
-  the Yew reducer. `step` also returns `Option<Board>` and yields `None` for a
-  blocked move, which is what stops the player being handed a free tile for
-  pressing a direction that does nothing.
+  `StdRng` and assert on exact boards; `thread_rng()` appears only in the view
+  layer, in the reducer and its initialiser, and nowhere in `game`. `step` also
+  returns `Option<Board>` and yields `None` for a blocked move, which is what
+  stops the player being handed a free tile for pressing a direction that does
+  nothing.
 - **Browser dependencies are target-gated.** `yew`, `gloo`, `web-sys` and
   `wasm-bindgen` sit under `[target.'cfg(target_arch = "wasm32")'.dependencies]`
   and `ui` is `#[cfg(target_arch = "wasm32")]`, so `cargo test` compiles the
   rules against 7 crates instead of the 75 the wasm build pulls in. CI lints
   both targets so the view layer stays honest.
-- **A blocked move returns the same `Rc`.** The reducer hands back the original
-  `Rc<Board>` when `step` returns `None`, so Yew's `PartialEq` check skips the
-  re-render entirely for held-down arrow keys.
+- **A blocked move renders nothing.** The reducer hands back an unchanged
+  `Board` when `step` returns `None`, and the component uses `use_reducer_eq`,
+  not `use_reducer` — the former passes `Board::ne` as the re-render predicate,
+  the latter hardcodes `true`. So an arrow key held against a wall costs one
+  68-byte `PartialEq` and no virtual-DOM diff.
 
 ## Tests
 
